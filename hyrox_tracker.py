@@ -81,66 +81,60 @@ if not df.empty:
     if 'Strength' not in stats.columns: stats['Strength'] = 0
     if 'Cardio' not in stats.columns: stats['Cardio'] = 0
 
-    # 1. Completion Score (For Sorting)
+    # 1. Calculations
     stats['Strength_Pct'] = stats['Strength'] / GOAL_STRENGTH
     stats['Cardio_Pct'] = stats['Cardio'] / GOAL_CARDIO
     stats['Completion_Score'] = (stats['Strength_Pct'] + stats['Cardio_Pct']) / 2
     
-    # 2. Balance Calculation
-    # Logic: If you have 0 workouts, balance is 100%. Otherwise, calculate split.
-    # 50/50 split = 100% score. 100/0 split = 0% score.
-    def calculate_balance(row):
+    # 2. Balance Logic
+    def get_balance_status(row):
         total = row['Strength'] + row['Cardio']
-        if total == 0:
-            return 1.0 # Default to perfect if no data
+        if total == 0: return "Start!"
+        
         ratio = row['Strength'] / total
-        # Deviation from 0.5. Multiplied by 2 so that 1.0 deviation = 0 score.
-        return 1 - (abs(ratio - 0.5) * 2)
+        balance_val = 1 - (abs(ratio - 0.5) * 2) # 1.0 is perfect, 0.0 is bad
+        
+        if balance_val >= 0.8: return "✅ Good Mix"
+        if row['Strength'] > row['Cardio']: return "⚠️ Need Cardio"
+        return "⚠️ Need Strength"
 
-    stats['Balance_Score'] = stats.apply(calculate_balance, axis=1)
+    stats['Balance_Status'] = stats.apply(get_balance_status, axis=1)
 
-    # Sort by Completion Score
+    # 3. Sort by Completion
     stats = stats.sort_values('Completion_Score', ascending=False)
+    
+    # 4. Prepare Data for Table Display (Reset Index so Name is a column)
+    display_df = stats[['Strength', 'Cardio', 'Completion_Score', 'Balance_Status']].reset_index()
 
-    for name, row in stats.iterrows():
-        with st.container():
-            st.subheader(f"{name}")
-            # CHANGED: Now using 4 Columns
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Strength", f"{int(row['Strength'])}/{GOAL_STRENGTH}")
-                st.progress(min(row['Strength'] / GOAL_STRENGTH, 1.0))
-            
-            with col2:
-                st.metric("Cardio", f"{int(row['Cardio'])}/{GOAL_CARDIO}")
-                st.progress(min(row['Cardio'] / GOAL_CARDIO, 1.0))
-            
-            with col3:
-                completion_val = row['Completion_Score'] * 100
-                st.metric("Completion Rate", f"{completion_val:.1f}%")
+    # 5. Display as a Table with Progress Bars
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Name": st.column_config.TextColumn("Name", width="small"),
+            "Strength": st.column_config.ProgressColumn(
+                "Strength (Goal 50)",
+                format="%d",
+                min_value=0,
+                max_value=GOAL_STRENGTH,
+            ),
+            "Cardio": st.column_config.ProgressColumn(
+                "Cardio (Goal 50)",
+                format="%d",
+                min_value=0,
+                max_value=GOAL_CARDIO,
+            ),
+            "Completion_Score": st.column_config.NumberColumn(
+                "Completion Rate",
+                format="%.1f%%"
+            ),
+            "Balance_Status": st.column_config.TextColumn(
+                "Balance Advice"
+            )
+        }
+    )
 
-            # NEW COLUMN: BALANCE
-            with col4:
-                balance_val = row['Balance_Score'] * 100
-                
-                # Determine advice text
-                if row['Strength'] == 0 and row['Cardio'] == 0:
-                    advice = "Start!"
-                    color = "normal"
-                elif balance_val >= 80:
-                    advice = "✅ Good Mix"
-                    color = "normal"
-                elif row['Strength'] > row['Cardio']:
-                    advice = "⚠️ Need Cardio"
-                    color = "inverse" # Highlight red
-                else:
-                    advice = "⚠️ Need Strength"
-                    color = "inverse" # Highlight red
-
-                st.metric("Balance Score", f"{balance_val:.0f}%", delta=advice, delta_color=color)
-            
-            st.divider()
 else:
     st.info("No workouts logged yet.")
 
@@ -159,6 +153,7 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
 
 
 
