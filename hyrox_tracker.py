@@ -66,8 +66,8 @@ st.header("🎖️ Leaderboard")
 # 2. Added Legend
 st.markdown("""
 <small>
-🥇 : <b>Strength Leader</b> (Most Strength Sessions)<br>
-🏆 : <b>Cardio Leader</b> (Most Cardio Sessions)
+🥇 : <b>Strength Leader</b> <br>
+🏆 : <b>Cardio Leader</b> 
 </small>
 """, unsafe_allow_html=True)
 
@@ -157,6 +157,7 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
 
 
 
