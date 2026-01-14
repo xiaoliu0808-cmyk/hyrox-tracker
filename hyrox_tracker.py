@@ -6,12 +6,10 @@ from streamlit_gsheets import GSheetsConnection
 # --- CONFIGURATION ---
 GOAL_STRENGTH = 50
 GOAL_CARDIO = 50
-# Updated Name List
 TEAM_MEMBERS = ["王总", "朱弟", "二条", "小牛"] 
 
 # --- PAGE SETUP ---
 st.set_page_config(page_title="HYROX GOGOGO", page_icon="💪")
-# Updated Title
 st.title("🏋️‍♂️ HYROX GOGOGO Team Tracker")
 
 # --- CONNECT TO GOOGLE SHEET ---
@@ -19,7 +17,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
-        df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=5)
+        # CHANGE MADE HERE: ttl=0 ensures we get fresh data every time (no caching)
+        df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=0)
         if df.empty:
              return pd.DataFrame(columns=["Date", "Name", "Type"])
         return df
@@ -42,17 +41,17 @@ with st.sidebar.form("log_form", clear_on_submit=True):
         updated_df = pd.concat([df, new_entry], ignore_index=True)
         conn.update(worksheet="Sheet1", data=updated_df)
         st.sidebar.success(f"Jiayou {name_input}! Saved.")
+        # This will now reload with the FRESH data immediately
         st.rerun()
 
 # --- MAIN DASHBOARD ---
 st.header("🏆 Leaderboard")
 
 if not df.empty:
-    # 1. Cleanup: Ensure we don't crash on empty rows
+    # 1. Cleanup
     df = df.dropna(subset=['Name', 'Type'])
     
-    # 2. Filter: Only show stats for the current 4 team members 
-    # (This hides old test data like "Friend 1" from the leaderboard)
+    # 2. Filter for current team
     current_team_df = df[df['Name'].isin(TEAM_MEMBERS)]
 
     if not current_team_df.empty:
@@ -60,11 +59,11 @@ if not df.empty:
     else:
         stats = pd.DataFrame()
 
-    # 3. Ensure all 4 members appear even if they have 0 workouts
+    # 3. Ensure all members exist
     for member in TEAM_MEMBERS:
         if member not in stats.index: stats.loc[member] = 0
     
-    # 4. Fill missing columns (in case no one has done Cardio yet)
+    # 4. Fill missing columns
     if 'Strength' not in stats.columns: stats['Strength'] = 0
     if 'Cardio' not in stats.columns: stats['Cardio'] = 0
 
@@ -92,5 +91,4 @@ else:
 # --- RECENT ACTIVITY ---
 st.header("📅 Recent Activity")
 if not df.empty:
-    # Show last 10 entries
     st.dataframe(df.sort_values("Date", ascending=False).head(10), use_container_width=True)
