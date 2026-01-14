@@ -17,7 +17,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
-        # CHANGE MADE HERE: ttl=0 ensures we get fresh data every time (no caching)
+        # ttl=0 ensures we get fresh data every time (no caching)
         df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=0)
         if df.empty:
              return pd.DataFrame(columns=["Date", "Name", "Type"])
@@ -27,31 +27,30 @@ def load_data():
 
 df = load_data()
 
-# --- SIDEBAR: LOG WORKOUT ---
-st.sidebar.header("Log a Workout")
-with st.sidebar.form("log_form", clear_on_submit=True):
-    name_input = st.selectbox("Who are you?", TEAM_MEMBERS)
-    date_input = st.date_input("Date", date.today())
-    type_input = st.radio("Workout Type", ["Strength", "Cardio"])
-    submitted = st.form_submit_button("Record Workout")
+# --- INPUT FORM (MOVED TO MAIN PAGE) ---
+# We use an expander so it doesn't take up space when not in use.
+# It starts closed (expanded=False). When you open it, it stays open 
+# until you hit "Record", which triggers a rerun and closes it again.
+with st.expander("➕ Log a Workout (Click to Open)", expanded=False):
+    with st.form("log_form", clear_on_submit=True):
+        name_input = st.selectbox("Who are you?", TEAM_MEMBERS)
+        date_input = st.date_input("Date", date.today())
+        type_input = st.radio("Workout Type", ["Strength", "Cardio"], horizontal=True)
+        submitted = st.form_submit_button("Record Workout", use_container_width=True)
 
-    if submitted:
-        new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
-                                 columns=["Date", "Name", "Type"])
-        updated_df = pd.concat([df, new_entry], ignore_index=True)
-        conn.update(worksheet="Sheet1", data=updated_df)
-        st.sidebar.success(f"Jiayou {name_input}! Saved.")
-        # This will now reload with the FRESH data immediately
-        st.rerun()
+        if submitted:
+            new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
+                                     columns=["Date", "Name", "Type"])
+            updated_df = pd.concat([df, new_entry], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            st.success(f"Jiayou {name_input}! Saved.")
+            st.rerun()
 
-# --- MAIN DASHBOARD ---
+# --- LEADERBOARD ---
 st.header("🏆 Leaderboard")
 
 if not df.empty:
-    # 1. Cleanup
     df = df.dropna(subset=['Name', 'Type'])
-    
-    # 2. Filter for current team
     current_team_df = df[df['Name'].isin(TEAM_MEMBERS)]
 
     if not current_team_df.empty:
@@ -59,19 +58,15 @@ if not df.empty:
     else:
         stats = pd.DataFrame()
 
-    # 3. Ensure all members exist
     for member in TEAM_MEMBERS:
         if member not in stats.index: stats.loc[member] = 0
     
-    # 4. Fill missing columns
     if 'Strength' not in stats.columns: stats['Strength'] = 0
     if 'Cardio' not in stats.columns: stats['Cardio'] = 0
 
-    # 5. Calculate Progress
     stats['Total Completed'] = stats['Strength'] + stats['Cardio']
     stats = stats.sort_values('Total Completed', ascending=False)
 
-    # 6. Display Cards
     for name, row in stats.iterrows():
         with st.container():
             st.subheader(f"{name}")
