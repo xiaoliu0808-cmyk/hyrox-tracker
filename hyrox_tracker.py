@@ -82,7 +82,14 @@ if not df.empty:
     stats['Cardio_Pct'] = stats['Cardio'] / GOAL_CARDIO
     stats['Completion_Score'] = (stats['Strength_Pct'] + stats['Cardio_Pct']) / 2
     
-    # 2. Balance Logic
+    # 2. Identify Leaders (Max values)
+    max_strength = stats['Strength'].max()
+    max_cardio = stats['Cardio'].max()
+
+    # 3. Sort by Overall Score
+    stats = stats.sort_values('Completion_Score', ascending=False)
+
+    # 4. Helper for Balance Text
     def get_balance_text(row):
         total = row['Strength'] + row['Cardio']
         if total == 0: return 1.0, "Start!"
@@ -96,22 +103,31 @@ if not df.empty:
         
         return balance_val, advice
 
-    # 3. Sort Columns by Best Performer
-    stats = stats.sort_values('Completion_Score', ascending=False)
-
-    # 4. Build Transposed Data
+    # 5. Build Display Data with Awards
     transposed_data = {}
     
     for name, row in stats.iterrows():
+        # Determine Name decoration
+        display_name = name
+        
+        # Award Strength Medal (🥇) if they have max strength AND > 0
+        if row['Strength'] == max_strength and max_strength > 0:
+            display_name = "🥇 " + display_name
+            
+        # Award Cardio Trophy (🏆) if they have max cardio AND > 0
+        if row['Cardio'] == max_cardio and max_cardio > 0:
+            display_name = "🏆 " + display_name
+
         bal_score, bal_advice = get_balance_text(row)
         
-        transposed_data[name] = [
+        transposed_data[display_name] = [
             f"{int(row['Strength'])} / {GOAL_STRENGTH}",       
             f"{int(row['Cardio'])} / {GOAL_CARDIO}",           
             f"{row['Completion_Score']*100:.1f}%",             
             f"{bal_score*100:.0f}% ({bal_advice})"             
         ]
 
+    # Create DataFrame
     display_df = pd.DataFrame(transposed_data, index=[
         "Strength Goal", 
         "Cardio Goal", 
@@ -119,7 +135,7 @@ if not df.empty:
         "Balance Advice"
     ])
 
-    # 5. Display
+    # 6. Display
     st.dataframe(display_df, use_container_width=True)
 
 else:
@@ -136,5 +152,6 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
 
 
