@@ -126,7 +126,7 @@ else:
     st.info("No workouts logged yet.")
 
 # --- RECENT ACTIVITY ---
-st.header("🏁 Nov 1 Target - Recent Activity")
+st.header("Recent Activity - 🏁 Nov Target ")
 if not df.empty:
     df['Name'] = pd.Categorical(df['Name'], categories=TEAM_MEMBERS, ordered=True)
     sorted_df = df.sort_values(by=['Name', 'Date'], ascending=[True, False])
@@ -136,3 +136,4 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
