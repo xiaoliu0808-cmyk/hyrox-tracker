@@ -64,6 +64,67 @@ with st.container(border=True):
                     st.rerun()
 
 # --- LEADERBOARD ---
+import streamlit as st
+import pandas as pd
+from datetime import date
+from streamlit_gsheets import GSheetsConnection
+
+# --- CONFIGURATION ---
+GOAL_STRENGTH = 50
+GOAL_CARDIO = 50
+TEAM_MEMBERS = ["王总", "朱弟", "二条", "小牛"] 
+
+# --- PAGE SETUP ---
+st.set_page_config(page_title="HYROX GOGOGO", page_icon="💪", layout="wide")
+st.title("🏋️‍♂️ HYROX GOGOGO Team Tracker")
+
+# --- SOUL SEARCHING REMINDER ---
+st.markdown("""
+> **朋友，log之前请灵魂拷问：**
+> * **今日算不算一次cardio**——费力了没？还是休闲娱乐动一动？Cardio到成为一名自己满意的hyrox选手、实现本年度运动目标的量了没？
+> * **今日算不算一次strength**——进步了没？练到了正确的地方没？为完成hyrox的两项任务努力了没？
+""")
+
+# --- CONNECT TO GOOGLE SHEET ---
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+def load_data():
+    try:
+        df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=0)
+        if df.empty:
+             return pd.DataFrame(columns=["Date", "Name", "Type"])
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["Date", "Name", "Type"])
+
+df = load_data()
+
+st.write("") 
+
+# --- INPUT FORM ---
+with st.container(border=True):
+    st.markdown("### 📝 **RECORD WORKOUT**")
+    
+    with st.expander("👇 **CLICK HERE TO OPEN FORM**", expanded=False):
+        with st.form("log_form", clear_on_submit=True):
+            name_input = st.selectbox("Who are you?", TEAM_MEMBERS, index=None, placeholder="Select your name...")
+            date_input = st.date_input("Date", date.today())
+            type_input = st.radio("Workout Type", ["Strength", "Cardio"], horizontal=True)
+            
+            submitted = st.form_submit_button("✅ Save Entry", use_container_width=True)
+
+            if submitted:
+                if not name_input:
+                    st.error("⚠️ Please select your name first!")
+                else:
+                    new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
+                                             columns=["Date", "Name", "Type"])
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    conn.update(worksheet="Sheet1", data=updated_df)
+                    st.success(f"Jiayou {name_input}! Saved.")
+                    st.rerun()
+
+# --- LEADERBOARD (TRANSPOSED VIEW) ---
 st.header("🏆 Leaderboard")
 
 if not df.empty:
@@ -87,53 +148,47 @@ if not df.empty:
     stats['Completion_Score'] = (stats['Strength_Pct'] + stats['Cardio_Pct']) / 2
     
     # 2. Balance Logic
-    def get_balance_status(row):
+    def get_balance_text(row):
         total = row['Strength'] + row['Cardio']
-        if total == 0: return "Start!"
-        
+        if total == 0: return 1.0, "Start!"
         ratio = row['Strength'] / total
-        balance_val = 1 - (abs(ratio - 0.5) * 2) # 1.0 is perfect, 0.0 is bad
+        balance_val = 1 - (abs(ratio - 0.5) * 2)
         
-        if balance_val >= 0.8: return "✅ Good Mix"
-        if row['Strength'] > row['Cardio']: return "⚠️ Need Cardio"
-        return "⚠️ Need Strength"
+        advice = ""
+        if balance_val >= 0.8: advice = "✅ Good Mix"
+        elif row['Strength'] > row['Cardio']: advice = "⚠️ Need Cardio"
+        else: advice = "⚠️ Need Strength"
+        
+        return balance_val, advice
 
-    stats['Balance_Status'] = stats.apply(get_balance_status, axis=1)
-
-    # 3. Sort by Completion
+    # 3. Sort Columns by Best Performer (Left = Winner)
     stats = stats.sort_values('Completion_Score', ascending=False)
-    
-    # 4. Prepare Data for Table Display (Reset Index so Name is a column)
-    display_df = stats[['Strength', 'Cardio', 'Completion_Score', 'Balance_Status']].reset_index()
 
-    # 5. Display as a Table with Progress Bars
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Name": st.column_config.TextColumn("Name", width="small"),
-            "Strength": st.column_config.ProgressColumn(
-                "Strength (Goal 50)",
-                format="%d",
-                min_value=0,
-                max_value=GOAL_STRENGTH,
-            ),
-            "Cardio": st.column_config.ProgressColumn(
-                "Cardio (Goal 50)",
-                format="%d",
-                min_value=0,
-                max_value=GOAL_CARDIO,
-            ),
-            "Completion_Score": st.column_config.NumberColumn(
-                "Completion Rate",
-                format="%.1f%%"
-            ),
-            "Balance_Status": st.column_config.TextColumn(
-                "Balance Advice"
-            )
-        }
-    )
+    # 4. Build the Transposed Formatted Data
+    transposed_data = {}
+    
+    for name, row in stats.iterrows():
+        # Get Balance Info
+        bal_score, bal_advice = get_balance_text(row)
+        
+        # Format the column for this person
+        transposed_data[name] = [
+            f"{int(row['Strength'])} / {GOAL_STRENGTH}",       # Row 1: Strength
+            f"{int(row['Cardio'])} / {GOAL_CARDIO}",           # Row 2: Cardio
+            f"{row['Completion_Score']*100:.1f}%",             # Row 3: Completion Rate
+            f"{bal_score*100:.0f}% ({bal_advice})"             # Row 4: Balance Advice
+        ]
+
+    # Create final DF: Rows are Benchmarks, Columns are Names
+    display_df = pd.DataFrame(transposed_data, index=[
+        "Strength Goal", 
+        "Cardio Goal", 
+        "Completion Rate", 
+        "Balance Advice"
+    ])
+
+    # 5. Display
+    st.dataframe(display_df, use_container_width=True)
 
 else:
     st.info("No workouts logged yet.")
@@ -153,6 +208,7 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
 
 
 
