@@ -6,21 +6,20 @@ from streamlit_gsheets import GSheetsConnection
 # --- CONFIGURATION ---
 GOAL_STRENGTH = 50
 GOAL_CARDIO = 50
-TEAM_MEMBERS = ["Me", "Friend 1", "Friend 2", "Friend 3"] 
+# Updated Name List
+TEAM_MEMBERS = ["王总", "朱弟", "二条", "小牛"] 
 
 # --- PAGE SETUP ---
-st.set_page_config(page_title="HYROX Team Tracker", page_icon="💪")
-st.title("🏋️‍♂️ HYROX November Team Tracker")
+st.set_page_config(page_title="HYROX GOGOGO", page_icon="💪")
+# Updated Title
+st.title("🏋️‍♂️ HYROX GOGOGO Team Tracker")
 
 # --- CONNECT TO GOOGLE SHEET ---
-# This creates a connection object. We use a specific TTL (time to live) to keep cache fresh.
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
-    # Read data from the Google Sheet
     try:
         df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=5)
-        # Ensure correct column names if sheet is empty
         if df.empty:
              return pd.DataFrame(columns=["Date", "Name", "Type"])
         return df
@@ -38,37 +37,42 @@ with st.sidebar.form("log_form", clear_on_submit=True):
     submitted = st.form_submit_button("Record Workout")
 
     if submitted:
-        # Create new row
         new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
                                  columns=["Date", "Name", "Type"])
-        
-        # Combine old and new data
         updated_df = pd.concat([df, new_entry], ignore_index=True)
-        
-        # Update Google Sheet
         conn.update(worksheet="Sheet1", data=updated_df)
-        
-        st.sidebar.success("Saved to Google Sheet!")
-        st.rerun() # Refresh to show new data
+        st.sidebar.success(f"Jiayou {name_input}! Saved.")
+        st.rerun()
 
-# --- MAIN DASHBOARD (Same as before) ---
+# --- MAIN DASHBOARD ---
 st.header("🏆 Leaderboard")
 
 if not df.empty:
-    # Clean data (ensure no empty rows affect stats)
+    # 1. Cleanup: Ensure we don't crash on empty rows
     df = df.dropna(subset=['Name', 'Type'])
     
-    stats = df.groupby(['Name', 'Type']).size().unstack(fill_value=0)
+    # 2. Filter: Only show stats for the current 4 team members 
+    # (This hides old test data like "Friend 1" from the leaderboard)
+    current_team_df = df[df['Name'].isin(TEAM_MEMBERS)]
+
+    if not current_team_df.empty:
+        stats = current_team_df.groupby(['Name', 'Type']).size().unstack(fill_value=0)
+    else:
+        stats = pd.DataFrame()
+
+    # 3. Ensure all 4 members appear even if they have 0 workouts
     for member in TEAM_MEMBERS:
         if member not in stats.index: stats.loc[member] = 0
+    
+    # 4. Fill missing columns (in case no one has done Cardio yet)
     if 'Strength' not in stats.columns: stats['Strength'] = 0
     if 'Cardio' not in stats.columns: stats['Cardio'] = 0
 
-    stats['Strength Left'] = GOAL_STRENGTH - stats['Strength']
-    stats['Cardio Left'] = GOAL_CARDIO - stats['Cardio']
+    # 5. Calculate Progress
     stats['Total Completed'] = stats['Strength'] + stats['Cardio']
     stats = stats.sort_values('Total Completed', ascending=False)
 
+    # 6. Display Cards
     for name, row in stats.iterrows():
         with st.container():
             st.subheader(f"{name}")
@@ -85,6 +89,8 @@ if not df.empty:
 else:
     st.info("No workouts logged yet.")
 
+# --- RECENT ACTIVITY ---
 st.header("📅 Recent Activity")
 if not df.empty:
+    # Show last 10 entries
     st.dataframe(df.sort_values("Date", ascending=False).head(10), use_container_width=True)
