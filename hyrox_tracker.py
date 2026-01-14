@@ -81,21 +81,36 @@ if not df.empty:
     if 'Strength' not in stats.columns: stats['Strength'] = 0
     if 'Cardio' not in stats.columns: stats['Cardio'] = 0
 
-    stats['Total Completed'] = stats['Strength'] + stats['Cardio']
-    stats = stats.sort_values('Total Completed', ascending=False)
+    # --- CHANGED CALCULATION LOGIC ---
+    # Calculate percentage for each category
+    stats['Strength_Pct'] = stats['Strength'] / GOAL_STRENGTH
+    stats['Cardio_Pct'] = stats['Cardio'] / GOAL_CARDIO
+    
+    # Average the two percentages to get the "Completion Score"
+    stats['Completion_Score'] = (stats['Strength_Pct'] + stats['Cardio_Pct']) / 2
+    
+    # Sort by this Score instead of Total Count
+    stats = stats.sort_values('Completion_Score', ascending=False)
 
     for name, row in stats.iterrows():
         with st.container():
             st.subheader(f"{name}")
             col1, col2, col3 = st.columns(3)
+            
             with col1:
                 st.metric("Strength", f"{int(row['Strength'])}/{GOAL_STRENGTH}")
                 st.progress(min(row['Strength'] / GOAL_STRENGTH, 1.0))
+            
             with col2:
                 st.metric("Cardio", f"{int(row['Cardio'])}/{GOAL_CARDIO}")
                 st.progress(min(row['Cardio'] / GOAL_CARDIO, 1.0))
+            
+            # --- CHANGED COLUMN 3 DISPLAY ---
             with col3:
-                st.metric("Total", f"{int(row['Total Completed'])}")
+                # Show Percentage formatted to 1 decimal place
+                completion_val = row['Completion_Score'] * 100
+                st.metric("Completion Rate", f"{completion_val:.1f}%")
+            
             st.divider()
 else:
     st.info("No workouts logged yet.")
@@ -108,5 +123,6 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
 
 
