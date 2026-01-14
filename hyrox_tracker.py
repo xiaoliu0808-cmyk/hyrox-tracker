@@ -24,7 +24,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
-        # ttl=0 ensures we get fresh data every time (no caching)
         df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=0)
         if df.empty:
              return pd.DataFrame(columns=["Date", "Name", "Type"])
@@ -34,26 +33,35 @@ def load_data():
 
 df = load_data()
 
-# --- INPUT FORM (EXPANDER) ---
-with st.expander("➕ Log a Workout (Click to Open)", expanded=False):
-    with st.form("log_form", clear_on_submit=True):
-        # CHANGED: index=None makes the box start empty/blank
-        name_input = st.selectbox("Who are you?", TEAM_MEMBERS, index=None, placeholder="Select your name...")
-        date_input = st.date_input("Date", date.today())
-        type_input = st.radio("Workout Type", ["Strength", "Cardio"], horizontal=True)
-        submitted = st.form_submit_button("Record Workout", use_container_width=True)
+st.write("") # Add a little breathing room
 
-        if submitted:
-            # SAFETY CHECK: Ensure a name was actually selected
-            if not name_input:
-                st.error("Please select your name first!")
-            else:
-                new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
-                                         columns=["Date", "Name", "Type"])
-                updated_df = pd.concat([df, new_entry], ignore_index=True)
-                conn.update(worksheet="Sheet1", data=updated_df)
-                st.success(f"Jiayou {name_input}! Saved.")
-                st.rerun()
+# --- INPUT FORM (High Visibility Version) ---
+# We use a container with a border to create a "Box" effect
+with st.container(border=True):
+    # Add a loud header inside the box
+    st.markdown("### 📝 **RECORD WORKOUT**")
+    
+    # Make the expander label BOLD and clear
+    with st.expander("👇 **CLICK HERE TO OPEN FORM**", expanded=False):
+        with st.form("log_form", clear_on_submit=True):
+            # Start empty so users must choose
+            name_input = st.selectbox("Who are you?", TEAM_MEMBERS, index=None, placeholder="Select your name...")
+            date_input = st.date_input("Date", date.today())
+            type_input = st.radio("Workout Type", ["Strength", "Cardio"], horizontal=True)
+            
+            # Make the button span the full width
+            submitted = st.form_submit_button("✅ Save Entry", use_container_width=True)
+
+            if submitted:
+                if not name_input:
+                    st.error("⚠️ Please select your name first!")
+                else:
+                    new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
+                                             columns=["Date", "Name", "Type"])
+                    updated_df = pd.concat([df, new_entry], ignore_index=True)
+                    conn.update(worksheet="Sheet1", data=updated_df)
+                    st.success(f"Jiayou {name_input}! Saved.")
+                    st.rerun()
 
 # --- LEADERBOARD ---
 st.header("🏆 Leaderboard")
@@ -93,7 +101,7 @@ else:
     st.info("No workouts logged yet.")
 
 # --- RECENT ACTIVITY ---
-st.header("🏁 Nov 1 Target - Recent Activity")
+st.header("Recent Activity - Till Nov🏁 ")
 if not df.empty:
     st.dataframe(
         df.sort_values("Date", ascending=False).head(10), 
