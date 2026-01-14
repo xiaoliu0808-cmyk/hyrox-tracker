@@ -46,7 +46,7 @@ with st.container(border=True):
             date_input = st.date_input("Date", date.today())
             type_input = st.radio("Workout Type", ["Strength", "Cardio"], horizontal=True)
             
-            submitted = st.form_submit_button("✅ Save Entry", use_container_width=True)
+            submitted = st.form_submit_button("✅ Record Workout", use_container_width=True)
 
             if submitted:
                 if not name_input:
@@ -136,4 +136,5 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
 
