@@ -39,7 +39,7 @@ st.write("") # Add a little breathing room
 # We use a container with a border to create a "Box" effect
 with st.container(border=True):
     # Add a loud header inside the box
-    st.markdown("### 📝 **RECORD WORKOUT**")
+    st.markdown("### 📝 **WORKOUT LOG**")
     
     # Make the expander label BOLD and clear
     with st.expander("👇 **CLICK HERE TO OPEN FORM**", expanded=False):
@@ -108,3 +108,4 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
+
