@@ -145,13 +145,20 @@ else:
     st.info("No workouts logged yet.")
 
 # --- RECENT ACTIVITY ---
-st.header("Recent Activity - Till Nov🏁 ")
 if not df.empty:
+    # 1. Convert Name to a "Categorical" type.
+    # This forces pandas to sort names based on the order in TEAM_MEMBERS list,
+    # rather than just alphabetically.
+    df['Name'] = pd.Categorical(df['Name'], categories=TEAM_MEMBERS, ordered=True)
+    
+    # 2. Sort by Name first (Order in list), then Date (Newest first)
+    sorted_df = df.sort_values(by=['Name', 'Date'], ascending=[True, False])
+    
     st.dataframe(
-        df.sort_values("Date", ascending=False).head(10), 
+        sorted_df, 
         use_container_width=True,
         hide_index=True
-    )
+
 
 
 
