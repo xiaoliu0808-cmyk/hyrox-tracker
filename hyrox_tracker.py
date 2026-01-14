@@ -9,72 +9,6 @@ GOAL_CARDIO = 50
 TEAM_MEMBERS = ["王总", "朱弟", "二条", "小牛"] 
 
 # --- PAGE SETUP ---
-st.set_page_config(page_title="HYROX GOGOGO", page_icon="💪")
-st.title("🏋️‍♂️ HYROX GOGOGO Team Tracker")
-
-# --- SOUL SEARCHING REMINDER ---
-st.markdown("""
-> **朋友，log之前请灵魂拷问：**
-> * **今日算不算一次cardio**——费力了没？还是休闲娱乐动一动？Cardio到成为一名自己满意的hyrox选手、实现本年度运动目标的量了没？
-> * **今日算不算一次strength**——进步了没？练到了正确的地方没？为完成hyrox的两项任务努力了没？
-""")
-
-# --- CONNECT TO GOOGLE SHEET ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-def load_data():
-    try:
-        df = conn.read(worksheet="Sheet1", usecols=[0, 1, 2], ttl=0)
-        if df.empty:
-             return pd.DataFrame(columns=["Date", "Name", "Type"])
-        return df
-    except Exception:
-        return pd.DataFrame(columns=["Date", "Name", "Type"])
-
-df = load_data()
-
-st.write("") # Add a little breathing room
-
-# --- INPUT FORM (High Visibility Version) ---
-# We use a container with a border to create a "Box" effect
-with st.container(border=True):
-    # Add a loud header inside the box
-    st.markdown("### 📝 **WORKOUT LOG**")
-    
-    # Make the expander label BOLD and clear
-    with st.expander("👇 **CLICK HERE TO OPEN FORM**", expanded=False):
-        with st.form("log_form", clear_on_submit=True):
-            # Start empty so users must choose
-            name_input = st.selectbox("Who are you?", TEAM_MEMBERS, index=None, placeholder="Select your name...")
-            date_input = st.date_input("Date", date.today())
-            type_input = st.radio("Workout Type", ["Strength", "Cardio"], horizontal=True)
-            
-            # Make the button span the full width
-            submitted = st.form_submit_button("✅ Record Workout", use_container_width=True)
-
-            if submitted:
-                if not name_input:
-                    st.error("⚠️ Please select your name first!")
-                else:
-                    new_entry = pd.DataFrame([[str(date_input), name_input, type_input]], 
-                                             columns=["Date", "Name", "Type"])
-                    updated_df = pd.concat([df, new_entry], ignore_index=True)
-                    conn.update(worksheet="Sheet1", data=updated_df)
-                    st.success(f"Jiayou {name_input}! Saved.")
-                    st.rerun()
-
-# --- LEADERBOARD ---
-import streamlit as st
-import pandas as pd
-from datetime import date
-from streamlit_gsheets import GSheetsConnection
-
-# --- CONFIGURATION ---
-GOAL_STRENGTH = 50
-GOAL_CARDIO = 50
-TEAM_MEMBERS = ["王总", "朱弟", "二条", "小牛"] 
-
-# --- PAGE SETUP ---
 st.set_page_config(page_title="HYROX GOGOGO", page_icon="💪", layout="wide")
 st.title("🏋️‍♂️ HYROX GOGOGO Team Tracker")
 
@@ -102,6 +36,7 @@ df = load_data()
 st.write("") 
 
 # --- INPUT FORM ---
+# This is the ONLY place where st.form("log_form") should appear
 with st.container(border=True):
     st.markdown("### 📝 **RECORD WORKOUT**")
     
@@ -161,25 +96,22 @@ if not df.empty:
         
         return balance_val, advice
 
-    # 3. Sort Columns by Best Performer (Left = Winner)
+    # 3. Sort Columns by Best Performer
     stats = stats.sort_values('Completion_Score', ascending=False)
 
-    # 4. Build the Transposed Formatted Data
+    # 4. Build Transposed Data
     transposed_data = {}
     
     for name, row in stats.iterrows():
-        # Get Balance Info
         bal_score, bal_advice = get_balance_text(row)
         
-        # Format the column for this person
         transposed_data[name] = [
-            f"{int(row['Strength'])} / {GOAL_STRENGTH}",       # Row 1: Strength
-            f"{int(row['Cardio'])} / {GOAL_CARDIO}",           # Row 2: Cardio
-            f"{row['Completion_Score']*100:.1f}%",             # Row 3: Completion Rate
-            f"{bal_score*100:.0f}% ({bal_advice})"             # Row 4: Balance Advice
+            f"{int(row['Strength'])} / {GOAL_STRENGTH}",       
+            f"{int(row['Cardio'])} / {GOAL_CARDIO}",           
+            f"{row['Completion_Score']*100:.1f}%",             
+            f"{bal_score*100:.0f}% ({bal_advice})"             
         ]
 
-    # Create final DF: Rows are Benchmarks, Columns are Names
     display_df = pd.DataFrame(transposed_data, index=[
         "Strength Goal", 
         "Cardio Goal", 
@@ -194,13 +126,9 @@ else:
     st.info("No workouts logged yet.")
 
 # --- RECENT ACTIVITY ---
+st.header("🏁 Nov 1 Target - Recent Activity")
 if not df.empty:
-    # 1. Convert Name to a "Categorical" type.
-    # This forces pandas to sort names based on the order in TEAM_MEMBERS list,
-    # rather than just alphabetically.
     df['Name'] = pd.Categorical(df['Name'], categories=TEAM_MEMBERS, ordered=True)
-    
-    # 2. Sort by Name first (Order in list), then Date (Newest first)
     sorted_df = df.sort_values(by=['Name', 'Date'], ascending=[True, False])
     
     st.dataframe(
@@ -208,10 +136,3 @@ if not df.empty:
         use_container_width=True,
         hide_index=True
     )
-
-
-
-
-
-
-
